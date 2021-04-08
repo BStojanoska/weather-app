@@ -33,20 +33,24 @@ const questions = [
 
 const fetchData = async function (flags) {
   let type = "q";
+  let units = "metric"
   if ("zip" in flags) {
     type = "zip";
   }
+  if (flags["t"].toLowerCase() == "f") {
+    units = "imperial";
+  }
   let params = flags[type];
-  let query = `https://api.openweathermap.org/data/2.5/weather?${type}=${params}&appid=${apiKey}`;
+  let query = `https://api.openweathermap.org/data/2.5/weather?${type}=${params}&appid=${apiKey}&units=${units}`;
 
   try {
     const response = await got(query);
-    console.log(response.body);
+    const data = JSON.parse(response.body);
+    let responseCli = `The temperature in ${data.name} is ${data.main.temp}, humidity is ${data.main.humidity}, and it's ${data.weather[0].description}.`
+    console.log(responseCli);
 
-    //=> '<!doctype html> ...'
   } catch (error) {
     console.log(error.response.body);
-    //=> 'Internal server error ...'
   }
 };
 
