@@ -1,4 +1,5 @@
-const fs = require("fs");
+const fs = require("fs").promises;
+const os = require('os');
 const got = require("got");
 const prompts = require("prompts");
 const yargs = require("yargs");
@@ -11,9 +12,39 @@ let paramsObject = {
   t: null
 }
 
-const updateParams = function(params) {
+const saveConfig = async function(showMsg = true) {
+  const data = JSON.stringify(paramsObject);
+
+  try {
+    const res = await fs.writeFile(`${os.homedir}/config.json`, data)
+    if (showMsg) {
+      console.log('Configuration saved successfully. Use -i to get the weather for you last search.')
+    }
+    ;
+  } catch (e) {
+    console.log('There has been an error saving your configuration data.\n');
+    console.error(e.message);
+  }
+}
+
+const readConfig = async function() {
+  const data = await fs.readFile(`${os.homedir}/config.json`);
+  let myObj;
+
+  try {
+    myObj = JSON.parse(data);
+    paramsObject = myObj;
+  }
+  catch (err) {
+    console.log('There has been an error parsing your JSON.')
+    console.log(err);
+  }
+}
+
+const updateParams = async function(params, showMsg = true) {
   paramsObject = { ...paramsObject, ...params };
   paramsObject.city !== null ? paramsObject["city/zipcode"] = 'city' : 'not';
+  await saveConfig(showMsg);
 }
 
 const questions = [
@@ -110,7 +141,7 @@ const checkFlags = async function () {
   const flags = yargs.argv;
   let prompts = null;
 
-  if (flags.c || flags.z || flags.t) {
+  if (flags.c || flags.z || flags.t || flags.i || flags.import) {
     switch (true) {
       // import batch
       case "import" in flags:
@@ -118,8 +149,9 @@ const checkFlags = async function () {
         break;
       // use last query
       case "i" in flags:
-        console.log("Show last query");
-        break;
+        await readConfig();
+        await fetchData();
+      break;
       // all flags passed correctly
       case "t" in flags && ("c" in flags || "z" in flags):
         updateParams(flags);
@@ -127,14 +159,14 @@ const checkFlags = async function () {
         break;
       // temperature flag missing
       case !("t" in flags) && ("c" in flags || "z" in flags):
-        updateParams(flags);
+        updateParams(flags, false);
         prompts = await promptChain({"city/zipcode": true});
         updateParams(prompts);
         await fetchData();
         break;
       // city/zipcode missing
       case !("c" in flags && "z" in flags):
-        updateParams(flags);
+        updateParams(flags, false);
         prompts = await promptChain();
         updateParams(prompts);
         await fetchData();
