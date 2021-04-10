@@ -1,8 +1,9 @@
-const fs = require("fs").promises;
+const fsPromises = require("fs").promises;
 const os = require('os');
 const got = require("got");
 const prompts = require("prompts");
 const yargs = require("yargs");
+// open weather app api key for testing purposes
 const apiKey = "ee75a1233cd0a33db0f5a09d32fbe7b5";
 
 let paramsObject = {
@@ -12,15 +13,23 @@ let paramsObject = {
   t: null
 }
 
+const resetParams = async function() {
+  paramsObject = {
+    "city/zipcode": null,
+    c: null,
+    z: null,
+    t: null
+  }
+}
+
 const saveConfig = async function(showMsg = true) {
   const data = JSON.stringify(paramsObject);
 
   try {
-    const res = await fs.writeFile(`${os.homedir}/config.json`, data)
+    const res = await fsPromises.writeFile(`${os.homedir}/config.json`, data);
     if (showMsg) {
-      console.log('Configuration saved successfully. Use -i to get the weather for you last search.')
+      console.log('Configuration saved successfully. Use -i to get the weather for you last search.');
     }
-    ;
   } catch (e) {
     console.log('There has been an error saving your configuration data.\n');
     console.error(e.message);
@@ -28,23 +37,38 @@ const saveConfig = async function(showMsg = true) {
 }
 
 const readConfig = async function() {
-  const data = await fs.readFile(`${os.homedir}/config.json`);
+  const data = await fsPromises.readFile(`${os.homedir}/config.json`);
   let myObj;
 
   try {
     myObj = JSON.parse(data);
     paramsObject = myObj;
-  }
-  catch (err) {
+  } catch (e) {
     console.log('There has been an error parsing your JSON.')
-    console.log(err);
+    console.log(e);
   }
 }
 
-const updateParams = async function(params, showMsg = true) {
+const updateParams = async function(params, showMsg = true, save = true) {
   paramsObject = { ...paramsObject, ...params };
   paramsObject.city !== null ? paramsObject["city/zipcode"] = 'city' : 'not';
-  await saveConfig(showMsg);
+  if (save) {
+    await saveConfig(showMsg);
+  }
+}
+
+const importFile = async function(path) {
+  let lines = await fsPromises.readFile(path, 'utf-8');
+  let parsed = JSON.parse(lines);
+
+  if (parsed.length <= 10) {
+    for (const line of parsed) {
+      await updateParams(line, false, false);
+      await fetchData();
+    }
+  } else {
+    console.log("Maximum import of 10 cities.")
+  }
 }
 
 const questions = [
@@ -121,7 +145,7 @@ const fetchData = async function () {
     responseCli = `The temperature in ${data.name} is ${data.main.temp}, humidity is ${data.main.humidity}, and it's ${data.weather[0].description}.`;
     // Print out the response
     console.log(responseCli);
-
+    await resetParams();
   } catch (error) {
     console.log(error.response.body);
   }
@@ -145,7 +169,7 @@ const checkFlags = async function () {
     switch (true) {
       // import batch
       case "import" in flags:
-        console.log("Handle batch files");
+        importFile(flags.import);
         break;
       // use last query
       case "i" in flags:
