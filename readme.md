@@ -23,6 +23,6 @@ ex\:
 
 *Note*: If there is a flag missing, you will be prompted to enter additional info.
 
-**Importing files**
+**Importing files**\
 The file has to be in `.json`, and contain the same flags as mentioned above. 
 You can look at the [example](https://github.com/BStojanoska/weather-app/blob/master/batchImport.json) batch file.

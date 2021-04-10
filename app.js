@@ -78,7 +78,7 @@ const questions = [
     message: "City or not?",
     initial: 'city',
     validate: (value) => {
-      if (!value  && value !== 'city' && value !== 'not') {
+      if (!value  || (value !== 'city' && value !== 'not')) {
         return 'Invalid option';
       }
 
