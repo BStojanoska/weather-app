@@ -7,18 +7,18 @@ const yargs = require("yargs");
 const apiKey = "ee75a1233cd0a33db0f5a09d32fbe7b5";
 
 let paramsObject = {
-  "city/zipcode": null,
-  c: null,
-  z: null,
-  t: null
+  "city/zipcode": undefined,
+  c: undefined,
+  z: undefined,
+  t: undefined
 }
 
 const resetParams = async function() {
   paramsObject = {
-    "city/zipcode": null,
-    c: null,
-    z: null,
-    t: null
+    "city/zipcode": undefined,
+    c: undefined,
+    z: undefined,
+    t: undefined
   }
 }
 
@@ -51,7 +51,6 @@ const readConfig = async function() {
 
 const updateParams = async function(params, showMsg = true, save = true) {
   paramsObject = { ...paramsObject, ...params };
-  paramsObject.city !== null ? paramsObject["city/zipcode"] = 'city' : 'not';
   if (save) {
     await saveConfig(showMsg);
   }
@@ -114,7 +113,7 @@ const questions = [
     name: "t",
     message: "C or F?",
     validate: (value) => {
-      if (!value && value === '') {
+      if ((!value && value === '') || (value !== 'C' || value !== 'F')) {
         return 'Please enter a preference';
       }
 
@@ -126,15 +125,15 @@ const questions = [
 const fetchData = async function () {
   let type = "q";
   let units = "metric";
-  let params = paramsObject["c"];
+  let params = paramsObject.c;
   let responseCli = "";
 
-  if (paramsObject.z !== null) {
+  if (paramsObject.z) {
     type = "zip";
-    params = paramsObject["z"];
+    params = paramsObject.z;
   }
-  // if somehow temperature flag is missing a value, default to metric units
-  if (paramsObject["t"] !== true && paramsObject["t"].toLowerCase() == "f") {
+
+  if (paramsObject.t && paramsObject["t"].toLowerCase() == "f") {
     units = "imperial";
   }
   let query = `https://api.openweathermap.org/data/2.5/weather?${type}=${params}&appid=${apiKey}&units=${units}`;
@@ -152,20 +151,27 @@ const fetchData = async function () {
 };
 
 const promptChain = async function (override) {
-  // Have additional check to override a question. I need this for the city/zipcode case
-  if (override) {
-    prompts.override(override);
-  } else {
-    prompts.override(yargs.argv);
+  Object.keys(paramsObject).map(key => {
+    if (paramsObject[key] === true) {
+      paramsObject[key] = undefined;
+    }
+  });
+  if (paramsObject.c) {
+    paramsObject["city/zipcode"] = "city";
+  } else if (paramsObject.z) {
+    paramsObject["city/zipcode"] = "not";
   }
+
+  prompts.override(paramsObject);
   return prompts(questions);
 };
 
 const checkFlags = async function () {
   const flags = yargs.argv;
-  let prompts = null;
+  updateParams(flags, false, false);
+  let res = null;
 
-  if (flags.c || flags.z || flags.t || flags.i || flags.import) {
+  if (flags.i || flags.import) {
     switch (true) {
       // import batch
       case "import" in flags:
@@ -176,31 +182,10 @@ const checkFlags = async function () {
         await readConfig();
         await fetchData();
       break;
-      // all flags passed correctly
-      case "t" in flags && ("c" in flags || "z" in flags):
-        updateParams(flags);
-        await fetchData();
-        break;
-      // temperature flag missing
-      case !("t" in flags) && ("c" in flags || "z" in flags):
-        updateParams(flags, false);
-        prompts = await promptChain({"city/zipcode": true});
-        updateParams(prompts);
-        await fetchData();
-        break;
-      // city/zipcode missing
-      case !("c" in flags && "z" in flags):
-        updateParams(flags, false);
-        prompts = await promptChain();
-        updateParams(prompts);
-        await fetchData();
-        break;
-      default:
-        console.log("Enter valid flags or display prompt");
-        break;
     }
   } else {
-    updateParams(await promptChain());
+    res = await promptChain();
+    updateParams(res);
     await fetchData();
   }
 };
