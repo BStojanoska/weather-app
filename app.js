@@ -141,7 +141,7 @@ const questions = [
     name: 't',
     message: 'C or F?',
     validate(value) {
-      if ((!value && value === '') || (value !== 'C' || value !== 'F')) {
+      if ((!value || value === '') || (value !== 'C' && value !== 'F')) {
         return 'Please enter a preference';
       }
 
